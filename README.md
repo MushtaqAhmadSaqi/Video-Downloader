@@ -1,130 +1,248 @@
-# MultiVid - Universal Video Downloader
+# 🎬 MultiVid — Universal Video Downloader
 
-A clean, local-first starter project for fetching video info and downloading media with **Flask + yt-dlp**.
+> A clean, local-first video downloader built with **Flask + yt-dlp**.  
+> Paste any video URL, pick your quality, and download it directly to your device.
 
-## What this build does
+---
 
-- Paste a video URL
-- Fetch title, thumbnail, uploader, duration, and available formats
-- Download a selected format to your device
-- Download MP3 audio if **ffmpeg** is installed
-- Run everything on **your own computer** for free
+## ✨ Features
 
-## Free resources
+- 🔗 Paste any video URL (YouTube, Twitter/X, Instagram, Facebook, TikTok, and 1000+ sites)
+- 📋 Fetch video title, thumbnail, uploader, and duration before downloading
+- 🎞️ Browse all available formats and quality levels
+- ⬇️ Download your chosen format directly to your browser
+- 🎵 Extract MP3 audio (requires FFmpeg)
+- 🔀 Auto-merge best video + best audio into a single MP4 (requires FFmpeg)
+- 🪟 **Bundled FFmpeg support** — no PATH editing, no system setup
+- 🌐 Runs entirely on your own computer — no data sent to any cloud
 
-- Flask docs: https://flask.palletsprojects.com/
-- yt-dlp install guide: https://github.com/yt-dlp/yt-dlp/wiki/Installation
-- FFmpeg downloads: https://ffmpeg.org/download.html
-- GitHub Pages docs: https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages
-- Python downloads: https://www.python.org/downloads/
-- Git downloads: https://git-scm.com/downloads
-- VS Code: https://code.visualstudio.com/
+---
 
-## Tech stack
+## 🛠️ Tech Stack
 
-- Frontend: HTML, CSS, JavaScript
-- Backend: Flask
-- Downloader: yt-dlp
-- Media processing: ffmpeg
-- Hosting for code: GitHub
-- Free docs site: GitHub Pages
+| Layer | Technology |
+|---|---|
+| Backend | Python 3.10+ · Flask |
+| Downloader | yt-dlp |
+| Media processing | FFmpeg (bundled) |
+| Frontend | HTML · CSS · Vanilla JavaScript |
+| Code hosting | GitHub |
+| Public landing page | GitHub Pages (`docs/`) |
 
-## Requirements
+---
 
-- Python 3.10+
-- pip
-- FFmpeg *(for best-quality downloads, audio extraction, and format merging)*
+## 📁 Project Structure
 
-## FFmpeg setup — no PATH editing needed
+```text
+Video-Downloader/
+├── app.py                  ← Flask backend
+├── requirements.txt        ← Python dependencies
+├── README.md
+├── .gitignore
+│
+├── ffmpeg/                 ← Drop ffmpeg.exe & ffprobe.exe here
+│   └── .gitkeep
+│
+├── templates/
+│   └── index.html          ← Main UI page
+│
+├── static/
+│   ├── style.css           ← Styling
+│   └── app.js              ← Frontend logic
+│
+├── temp/                   ← Temporary download files (auto-cleaned)
+│
+└── docs/                   ← Static GitHub Pages landing page
+    ├── index.html
+    └── style.css
+```
 
-This project supports a **bundled FFmpeg** approach. You just drop the binaries into the `ffmpeg/` folder and the app detects them automatically. No environment variables, no PATH editing.
+---
 
-### Steps
+## ⚙️ Installation
 
-1. Download a Windows FFmpeg build from <https://github.com/BtbN/FFmpeg-Builds/releases>  
-   Pick the file named something like `ffmpeg-master-latest-win64-gpl.zip`
-2. Extract the ZIP
-3. Inside the extracted folder, open the `bin/` sub-folder
-4. Copy **`ffmpeg.exe`** and **`ffprobe.exe`** into this project's `ffmpeg/` folder:
+### Prerequisites
 
-   ```text
-   Video-Downloader/
-   └── ffmpeg/
-       ├── ffmpeg.exe   ← paste here
-       └── ffprobe.exe  ← paste here
-   ```
+- **Python 3.10+** — download from [python.org](https://www.python.org/downloads/) *(use the installer, not the Microsoft Store version)*
+- **Git** — download from [git-scm.com](https://git-scm.com/downloads)
 
-5. That's it — run `python app.py` and it will find them.
+> ⚠️ **Windows Store Python** can cause venv issues. If you installed Python from the Microsoft Store, uninstall it and reinstall from [python.org](https://www.python.org/downloads/) instead.
 
-> **Without FFmpeg:** basic downloads in formats that already contain audio will still work.  
-> **With FFmpeg:** best quality, merged video+audio, and MP3 extraction all work.
+### Step 1 — Clone the project
 
-### Linux / macOS
+```bash
+git clone https://github.com/MushtaqAhmadSaqi/Video-Downloader.git
+cd Video-Downloader
+```
 
+### Step 2 — Create a virtual environment
+
+**Windows:**
+```bash
+python -m venv venv
+venv\Scripts\activate
+```
+
+**Linux / macOS:**
 ```bash
 python3 -m venv venv
 source venv/bin/activate
+```
+
+### Step 3 — Install Python dependencies
+
+```bash
 pip install -r requirements.txt
 ```
 
-## Run locally
+---
+
+## 🎞️ FFmpeg Setup — No PATH editing needed
+
+This project uses a **bundled FFmpeg** approach. You simply drop the binaries into the `ffmpeg/` folder and the app detects them automatically — no environment variables, no PATH editing, no terminal restarts.
+
+### Why FFmpeg?
+
+| Situation | Without FFmpeg | With FFmpeg |
+|---|---|---|
+| Basic video download | ✅ Works | ✅ Works |
+| High-quality merged video+audio | ❌ May fail | ✅ Works |
+| MP3 audio extraction | ❌ Not available | ✅ Works |
+| 1080p / 4K downloads | ⚠️ Limited | ✅ Full support |
+
+### How to set it up
+
+1. Go to: **https://github.com/BtbN/FFmpeg-Builds/releases**
+2. Download the file named `ffmpeg-master-latest-win64-gpl.zip`
+3. Extract the ZIP
+4. Inside the extracted folder, open the **`bin/`** sub-folder
+5. Copy **`ffmpeg.exe`** and **`ffprobe.exe`** into this project's `ffmpeg/` folder:
+
+```text
+Video-Downloader/
+└── ffmpeg/
+    ├── ffmpeg.exe    ← paste here
+    └── ffprobe.exe   ← paste here
+```
+
+6. Done — the app will find them automatically on next start.
+
+> **Note:** The `ffmpeg/` folder exists in the repo but the `.exe` files are excluded from git (see `.gitignore`). Each person who clones the project adds their own FFmpeg binaries.
+
+---
+
+## ▶️ Running the App
 
 ```bash
 python app.py
 ```
 
-Then open:
+Then open your browser and go to:
 
-```text
+```
 http://127.0.0.1:5000
 ```
 
-## Project structure
+---
 
-```text
-multivid/
-├── app.py
-├── requirements.txt
-├── README.md
-├── .gitignore
-├── ffmpeg/          ← drop ffmpeg.exe and ffprobe.exe here
-│   └── .gitkeep
-├── temp/
-├── templates/
-│   └── index.html
-├── static/
-│   ├── style.css
-│   └── app.js
-└── docs/
-    ├── index.html
-    └── style.css
-```
+## 📖 How to Use
 
-## GitHub Pages
+1. Open `http://127.0.0.1:5000` in your browser
+2. Paste a video URL into the input field
+3. Click **Fetch** — the app will show title, thumbnail, and all available formats
+4. Select your preferred quality from the list
+5. Click **Download** — the file will be saved to your device
+6. For audio-only, select a format and click **Download as MP3** (requires FFmpeg)
 
-The `docs/` folder contains a static landing page you can publish with GitHub Pages.
+---
 
-### Steps
+## 🌍 Supported Sites
 
-1. Create a GitHub repository
-2. Push this project to the repo
-3. Go to **Settings > Pages**
-4. Set the publishing source to **Deploy from a branch**
-5. Choose your main branch and `/docs` folder
-6. Save
+yt-dlp supports **1000+ websites**, including:
 
-Your public docs page will go live after GitHub builds it.
+- YouTube
+- Twitter / X
+- Instagram
+- Facebook
+- TikTok
+- Reddit
+- Vimeo
+- Dailymotion
+- Twitch clips
+- SoundCloud
+- And many more — see the full list at [yt-dlp supported sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
 
-## Important note
+---
 
-This starter project is meant for responsible personal use. Only download content you own or have permission to access.
+## 🗺️ Planned Improvements
 
-## Next upgrades you can add later
+The following features are planned for future versions:
 
-- subtitle download
-- batch downloads
-- local download history with localStorage
-- drag-and-drop URL input
-- progress bars
-- playlist handling
-- Docker setup
+### Core Features
+- [ ] **Real-time progress bar** — show live download progress using Server-Sent Events or WebSocket
+- [ ] **Playlist support** — detect and download full playlists or selected items
+- [ ] **Batch download** — paste multiple URLs and download them all at once
+- [ ] **Subtitle download** — fetch and embed subtitles/closed captions
+
+### User Experience
+- [ ] **Download history** — remember past downloads using localStorage
+- [ ] **Drag-and-drop URL input** — drop links directly onto the page
+- [ ] **Format filter** — filter by video-only, audio-only, resolution, or file type
+- [ ] **Copy-to-clipboard button** — copy the direct download link
+- [ ] **Dark/light mode toggle**
+
+### Quality & Output
+- [ ] **Custom output filename** — let users rename before downloading
+- [ ] **Quality presets** — "Best", "HD", "SD", "Audio only" quick-select buttons
+- [ ] **Thumbnail download** — save the video thumbnail as an image
+- [ ] **Metadata embedding** — embed title, artist, and artwork into audio files
+
+### Infrastructure
+- [ ] **Docker setup** — one-command deploy with Docker Compose
+- [ ] **Rate limiting** — protect against abuse if hosting publicly
+- [ ] **API key support** — support cookies/auth for age-restricted or member-only videos
+- [ ] **Logging & error reporting** — better error messages and server-side logs
+
+---
+
+## 🌐 GitHub Pages
+
+The `docs/` folder contains a public landing page you can host with GitHub Pages.
+
+### Setup
+
+1. Create a GitHub repository and push this project
+2. Go to **Settings → Pages**
+3. Set source to **Deploy from a branch**
+4. Choose your main branch and the `/docs` folder
+5. Click **Save**
+
+Your public page will be live at `https://your-username.github.io/your-repo/`
+
+---
+
+## 📎 Useful Links
+
+| Resource | Link |
+|---|---|
+| Flask documentation | https://flask.palletsprojects.com/ |
+| yt-dlp GitHub | https://github.com/yt-dlp/yt-dlp |
+| yt-dlp supported sites | https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md |
+| FFmpeg builds for Windows | https://github.com/BtbN/FFmpeg-Builds/releases |
+| Python downloads | https://www.python.org/downloads/ |
+| Git downloads | https://git-scm.com/downloads |
+| GitHub Pages docs | https://docs.github.com/en/pages |
+
+---
+
+## ⚠️ Important Notice
+
+This project is intended for **responsible personal use only**.  
+Only download content that you own or have explicit permission to access.  
+Respect copyright laws and the terms of service of each platform.
+
+---
+
+## 📄 License
+
+MIT — free to use, modify, and share.
