@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MultiVid - Universal Video Downloader</title>
+  <meta name="description" content="Free open-source local video downloader built with Flask and yt-dlp." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body data-ffmpeg="{{ 'true' if ffmpeg_ready else 'false' }}">
+  <div class="bg-glow glow-1"></div>
+  <div class="bg-glow glow-2"></div>
+
+  <main class="container">
+    <section class="hero card">
+      <div class="badge">Open-source • Local-first • Free</div>
+      <h1>MultiVid</h1>
+      <p class="subtitle">
+        A clean Flask + yt-dlp starter for downloading video info and files on your own machine.
+      </p>
+
+      <div class="legal-note">
+        <strong>Use responsibly:</strong> only download content you own or have permission to access.
+      </div>
+
+      <form id="infoForm" class="url-form">
+        <label for="videoUrl" class="sr-only">Video URL</label>
+        <input
+          id="videoUrl"
+          name="url"
+          type="url"
+          placeholder="Paste a video URL here..."
+          autocomplete="off"
+          required
+        />
+        <button id="infoBtn" type="submit">Get Info</button>
+      </form>
+
+      <div class="quick-actions">
+        <button class="ghost-button" type="button" id="pasteDemoBtn">Paste demo URL</button>
+        <span class="helper-text" id="ffmpegStatus"></span>
+      </div>
+    </section>
+
+    <section id="statusBox" class="status hidden"></section>
+
+    <section id="resultCard" class="result card hidden">
+      <div class="result-grid">
+        <div class="thumb-wrap">
+          <img id="thumbnail" alt="Video thumbnail" />
+        </div>
+
+        <div class="meta-wrap">
+          <h2 id="title">Video title</h2>
+          <div class="meta-list">
+            <div><span>Uploader</span><strong id="uploader">-</strong></div>
+            <div><span>Duration</span><strong id="duration">-</strong></div>
+            <div><span>Site</span><strong id="site">-</strong></div>
+          </div>
+
+          <div class="download-actions">
+            <button id="bestBtn" class="primary" type="button">Download Best Quality</button>
+            <button id="audioBtn" class="secondary" type="button">Download MP3</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="formats-header">
+        <h3>Available formats</h3>
+        <p>Pick a format, then download it directly to your device.</p>
+      </div>
+
+      <div id="formatsList" class="formats-list"></div>
+    </section>
+
+    <section class="tips card">
+      <h3>Free resources</h3>
+      <ul>
+        <li><a href="https://flask.palletsprojects.com/" target="_blank" rel="noreferrer">Flask documentation</a></li>
+        <li><a href="https://github.com/yt-dlp/yt-dlp/wiki/Installation" target="_blank" rel="noreferrer">yt-dlp installation guide</a></li>
+        <li><a href="https://ffmpeg.org/download.html" target="_blank" rel="noreferrer">FFmpeg downloads</a></li>
+        <li><a href="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages" target="_blank" rel="noreferrer">GitHub Pages docs</a></li>
+      </ul>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
