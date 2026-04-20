@@ -33,19 +33,31 @@ A clean, local-first starter project for fetching video info and downloading med
 
 - Python 3.10+
 - pip
-- ffmpeg on PATH if you want audio extraction and better format merging
+- FFmpeg *(for best-quality downloads, audio extraction, and format merging)*
 
-## Install
+## FFmpeg setup — no PATH editing needed
 
-### Windows
+This project supports a **bundled FFmpeg** approach. You just drop the binaries into the `ffmpeg/` folder and the app detects them automatically. No environment variables, no PATH editing.
 
-```bash
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-```
+### Steps
 
-Install ffmpeg separately, then make sure `ffmpeg` works in a terminal.
+1. Download a Windows FFmpeg build from <https://github.com/BtbN/FFmpeg-Builds/releases>  
+   Pick the file named something like `ffmpeg-master-latest-win64-gpl.zip`
+2. Extract the ZIP
+3. Inside the extracted folder, open the `bin/` sub-folder
+4. Copy **`ffmpeg.exe`** and **`ffprobe.exe`** into this project's `ffmpeg/` folder:
+
+   ```text
+   Video-Downloader/
+   └── ffmpeg/
+       ├── ffmpeg.exe   ← paste here
+       └── ffprobe.exe  ← paste here
+   ```
+
+5. That's it — run `python app.py` and it will find them.
+
+> **Without FFmpeg:** basic downloads in formats that already contain audio will still work.  
+> **With FFmpeg:** best quality, merged video+audio, and MP3 extraction all work.
 
 ### Linux / macOS
 
@@ -75,6 +87,8 @@ multivid/
 ├── requirements.txt
 ├── README.md
 ├── .gitignore
+├── ffmpeg/          ← drop ffmpeg.exe and ffprobe.exe here
+│   └── .gitkeep
 ├── temp/
 ├── templates/
 │   └── index.html

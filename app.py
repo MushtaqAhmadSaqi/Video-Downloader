@@ -18,9 +18,35 @@ BASE_DIR = Path(__file__).resolve().parent
 DOWNLOAD_ROOT = BASE_DIR / "temp"
 DOWNLOAD_ROOT.mkdir(exist_ok=True)
 
+# ---------------------------------------------------------------------------
+# FFmpeg detection — prefer the bundled copy inside the project's ffmpeg/
+# folder so users don't need to touch system PATH at all.
+# ---------------------------------------------------------------------------
+BUNDLED_FFMPEG_DIR = BASE_DIR / "ffmpeg"
+_bundled_exe = BUNDLED_FFMPEG_DIR / "ffmpeg.exe"  # Windows binary name
 
-def ffmpeg_available() -> bool:
-    """Return True if ffmpeg is available on PATH."""
+
+def ffmpeg_available() -> tuple[bool, str | None]:
+    """Return (available, location_path_or_None).
+
+    Checks the bundled ffmpeg/ folder first, then falls back to system PATH.
+    Returns the directory path to pass as ``ffmpeg_location`` to yt-dlp.
+    """
+    # 1. Bundled copy inside the project folder
+    if _bundled_exe.is_file():
+        try:
+            completed = subprocess.run(
+                [str(_bundled_exe), "-version"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+            if completed.returncode == 0:
+                return True, str(BUNDLED_FFMPEG_DIR)
+        except OSError:
+            pass
+
+    # 2. System PATH fallback
     try:
         completed = subprocess.run(
             ["ffmpeg", "-version"],
@@ -28,12 +54,15 @@ def ffmpeg_available() -> bool:
             stderr=subprocess.DEVNULL,
             check=False,
         )
-        return completed.returncode == 0
+        if completed.returncode == 0:
+            return True, None  # yt-dlp will find it on PATH by itself
     except FileNotFoundError:
-        return False
+        pass
+
+    return False, None
 
 
-HAS_FFMPEG = ffmpeg_available()
+HAS_FFMPEG, FFMPEG_LOCATION = ffmpeg_available()
 
 
 def human_size(num_bytes: int | None) -> str:
@@ -81,6 +110,9 @@ INFO_YDL_OPTS: dict[str, Any] = {
     "noplaylist": True,
     "extract_flat": False,
     "ignoreerrors": False,
+    **(  # inject bundled ffmpeg location when available
+        {"ffmpeg_location": FFMPEG_LOCATION} if FFMPEG_LOCATION else {}
+    ),
 }
 
 
@@ -231,6 +263,9 @@ def api_download() -> Any:
             "outtmpl": outtmpl,
             "windowsfilenames": True,
             "cachedir": False,
+            **(  # inject bundled ffmpeg location when available
+                {"ffmpeg_location": FFMPEG_LOCATION} if FFMPEG_LOCATION else {}
+            ),
         }
 
         if mode == "audio":
