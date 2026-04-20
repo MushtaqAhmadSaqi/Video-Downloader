@@ -159,9 +159,20 @@ bestBtn.addEventListener("click", async () => {
     showStatus("Fetch video details first.", "error");
     return;
   }
-  const bestVideo = (currentVideo.formats || []).find(
-    (item) => item.type === "video" && item.has_audio
-  ) || (currentVideo.formats || []).find((item) => item.type === "video");
+
+  const videoFormats = (currentVideo.formats || [])
+    .filter((item) => item.type === "video")
+    .sort((a, b) => {
+      const heightDiff = (b.height || 0) - (a.height || 0);
+      if (heightDiff !== 0) return heightDiff;
+
+      const fpsDiff = (b.fps || 0) - (a.fps || 0);
+      if (fpsDiff !== 0) return fpsDiff;
+
+      return 0;
+    });
+
+  const bestVideo = videoFormats[0];
 
   if (!bestVideo) {
     showStatus("No downloadable video format was found.", "error");
