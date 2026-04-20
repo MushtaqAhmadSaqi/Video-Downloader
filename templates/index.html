@@ -64,6 +64,7 @@
           <div class="download-actions">
             <button id="bestBtn" class="primary" type="button">Download Best Quality</button>
             <button id="audioBtn" class="secondary" type="button">Download MP3</button>
+            <button id="subtitleBtn" class="secondary" type="button">Download Subtitles</button>
           </div>
         </div>
       </div>
@@ -86,6 +87,22 @@
       </ul>
     </section>
   </main>
+
+  <!-- NEW: Progress Modal -->
+  <div id="progressModal" class="modal hidden">
+    <div class="modal-content">
+      <h3 id="progressTitle">Downloading...</h3>
+      <div class="progress-container">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+      <div class="progress-info">
+        <span id="percentText">0%</span>
+        <span id="sizeText">0 MB / 0 MB</span>
+        <span id="etaText">ETA: --</span>
+      </div>
+      <button id="cancelBtn" class="ghost-button">Cancel</button>
+    </div>
+  </div>
 
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>

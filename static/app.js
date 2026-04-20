@@ -18,6 +18,18 @@ const siteEl = document.getElementById("site");
 const hasFfmpeg = document.body.dataset.ffmpeg === "true";
 let currentVideo = null;
 
+// NEW: Progress modal elements
+const progressModal = document.getElementById("progressModal");
+const progressBar = document.getElementById("progressBar");
+const percentText = document.getElementById("percentText");
+const sizeText = document.getElementById("sizeText");
+const etaText = document.getElementById("etaText");
+const progressTitle = document.getElementById("progressTitle");
+const subtitleBtn = document.getElementById("subtitleBtn");
+const cancelBtn = document.getElementById("cancelBtn");
+
+let currentTaskId = null;
+
 ffmpegStatus.textContent = hasFfmpeg
   ? "ffmpeg detected — MP3 extraction is enabled."
   : "ffmpeg not detected — video downloads will still work, but MP3 extraction may fail.";
@@ -72,7 +84,7 @@ function renderFormats(formats) {
     button.className = "format-btn";
     button.textContent = format.type === "audio" ? "Download Audio" : "Download Video";
     button.addEventListener("click", () => {
-      downloadSelected(format);
+      startDownload(format.type, format);
     });
 
     card.append(left, button);
@@ -154,91 +166,92 @@ infoForm.addEventListener("submit", async (event) => {
   }
 });
 
-bestBtn.addEventListener("click", async () => {
+// ====================== SUBTITLE + PROGRESS DOWNLOAD ======================
+async function startDownload(mode, format = null) {
   if (!currentVideo) {
     showStatus("Fetch video details first.", "error");
     return;
   }
 
-  const videoFormats = (currentVideo.formats || [])
-    .filter((item) => item.type === "video")
-    .sort((a, b) => {
-      const heightDiff = (b.height || 0) - (a.height || 0);
-      if (heightDiff !== 0) return heightDiff;
-
-      const fpsDiff = (b.fps || 0) - (a.fps || 0);
-      if (fpsDiff !== 0) return fpsDiff;
-
-      return 0;
-    });
-
-  const bestVideo = videoFormats[0];
-
-  if (!bestVideo) {
-    showStatus("No downloadable video format was found.", "error");
-    return;
-  }
-
-  await downloadSelected(bestVideo);
-});
-
-audioBtn.addEventListener("click", async () => {
-  if (!currentVideo) {
-    showStatus("Fetch video details first.", "error");
-    return;
-  }
-
-  await downloadSelected({ mode: "audio" });
-});
-
-async function downloadSelected(format) {
   const url = videoUrlInput.value.trim();
-  if (!url) {
-    showStatus("Missing video URL.", "error");
-    return;
-  }
-
   const payload = {
-    url,
-    format_id: format.format_id || "",
-    mode: format.mode || format.type || "video",
+    url: url,
+    mode: mode,
+    format_id: format ? format.format_id : ""
   };
 
   try {
-    showStatus("Preparing your download...", "success");
+    progressModal.classList.remove("hidden");
+    progressTitle.textContent = mode === "subtitle" ? "Downloading Subtitles..." : "Downloading Video...";
+    progressBar.style.width = "0%";
+    percentText.textContent = "0%";
+    sizeText.textContent = "0 MB / 0 MB";
+    etaText.textContent = "ETA: --";
 
-    const response = await fetch("/api/download", {
+    const res = await fetch("/api/download", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload)
     });
 
-    const contentType = response.headers.get("content-type") || "";
-    if (contentType.includes("application/json")) {
-      const data = await response.json();
-      throw new Error(data.error || "Download failed.");
-    }
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
 
-    if (!response.ok) {
-      throw new Error("Download failed.");
-    }
-
-    const blob = await response.blob();
-    const disposition = response.headers.get("Content-Disposition") || "";
-    const filenameMatch = disposition.match(/filename="?([^\"]+)"?/i);
-    const filename = filenameMatch ? filenameMatch[1] : "download.bin";
-
-    const blobUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(blobUrl);
-
-    showStatus("Download started. Check your browser downloads.", "success");
-  } catch (error) {
-    showStatus(error.message || "Download failed.", "error");
+    currentTaskId = data.task_id;
+    pollProgress();
+  } catch (err) {
+    hideProgressModal();
+    showStatus(err.message, "error");
   }
 }
+
+// Poll progress every 700ms
+function pollProgress() {
+  if (!currentTaskId) return;
+
+  const interval = setInterval(async () => {
+    if (!currentTaskId) {
+      clearInterval(interval);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/progress/${currentTaskId}`, { method: 'POST' });
+      const prog = await res.json();
+
+      if (prog.status === "finished") {
+        clearInterval(interval);
+        hideProgressModal();
+        showStatus("Download completed! Triggering file download...", "success");
+        // Auto-trigger file download
+        window.location.href = `/api/download_file/${currentTaskId}`;
+      } else if (prog.status === "downloading") {
+        progressBar.style.width = prog.percent + "%";
+        percentText.textContent = prog.percent + "%";
+        const downloadedMB = (prog.downloaded / (1024*1024)).toFixed(1);
+        const totalMB = prog.total ? (prog.total / (1024*1024)).toFixed(1) : "??";
+        sizeText.textContent = `${downloadedMB} MB / ${totalMB} MB`;
+        etaText.textContent = prog.eta ? `ETA: ${Math.round(prog.eta)}s` : "ETA: calculating...";
+      } else if (prog.status === "error") {
+        clearInterval(interval);
+        hideProgressModal();
+        showStatus(prog.error || "Download failed.", "error");
+      }
+    } catch (e) {
+      console.error("Polling error:", e);
+    }
+  }, 700);
+}
+
+function hideProgressModal() {
+  progressModal.classList.add("hidden");
+  progressBar.style.width = "0%";
+  currentTaskId = null;
+}
+
+// Attach buttons
+bestBtn.addEventListener("click", () => startDownload("video"));
+audioBtn.addEventListener("click", () => startDownload("audio"));
+subtitleBtn.addEventListener("click", () => startDownload("subtitle"));
+
+cancelBtn.addEventListener("click", hideProgressModal);
