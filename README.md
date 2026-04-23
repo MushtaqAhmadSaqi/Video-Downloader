@@ -61,7 +61,13 @@ Video-Downloader/
 
 ## ⚙️ Installation
 
-### Prerequisites
+There are two ways to run this project:
+- **Docker Setup (Recommended):** The easiest way. Everything is pre-packaged. Skip to the [🐳 Docker Deployment](#-docker-deployment) section.
+- **Manual Setup:** If you don't have Docker, follow the manual steps below. You will need to install Python and FFmpeg yourself.
+
+---
+
+### Prerequisites (For Manual Setup)
 
 - **Python 3.10+** — download from [python.org](https://www.python.org/downloads/) *(use the installer, not the Microsoft Store version)*
 - **Git** — download from [git-scm.com](https://git-scm.com/downloads)
