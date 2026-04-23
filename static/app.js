@@ -18,17 +18,18 @@ const siteEl = document.getElementById("site");
 const hasFfmpeg = document.body.dataset.ffmpeg === "true";
 let currentVideo = null;
 
-// NEW: Progress modal elements
-const progressModal = document.getElementById("progressModal");
+// ====================== NEW INLINE PROGRESS SECTION ======================
+const progressSection = document.getElementById("progressSection");
+const progressTitle = document.getElementById("progressTitle");
 const progressBar = document.getElementById("progressBar");
 const percentText = document.getElementById("percentText");
 const sizeText = document.getElementById("sizeText");
 const etaText = document.getElementById("etaText");
-const progressTitle = document.getElementById("progressTitle");
-const subtitleBtn = document.getElementById("subtitleBtn");
 const cancelBtn = document.getElementById("cancelBtn");
+const subtitleBtn = document.getElementById("subtitleBtn");
 
 let currentTaskId = null;
+let progressInterval = null;
 
 ffmpegStatus.textContent = hasFfmpeg
   ? "ffmpeg detected — MP3 extraction is enabled."
@@ -167,6 +168,21 @@ infoForm.addEventListener("submit", async (event) => {
 });
 
 // ====================== SUBTITLE + PROGRESS DOWNLOAD ======================
+function showProgress(title) {
+  progressTitle.textContent = title;
+  progressSection.classList.remove("hidden");
+  progressBar.style.width = "0%";
+  percentText.textContent = "0%";
+  sizeText.textContent = "0 MB / 0 MB";
+  etaText.textContent = "ETA: --";
+}
+
+function hideProgress() {
+  progressSection.classList.add("hidden");
+  currentTaskId = null;
+  if (progressInterval) clearInterval(progressInterval);
+}
+
 async function startDownload(mode, format = null) {
   if (!currentVideo) {
     showStatus("Fetch video details first.", "error");
@@ -181,12 +197,8 @@ async function startDownload(mode, format = null) {
   };
 
   try {
-    progressModal.classList.remove("hidden");
-    progressTitle.textContent = mode === "subtitle" ? "Downloading Subtitles..." : "Downloading Video...";
-    progressBar.style.width = "0%";
-    percentText.textContent = "0%";
-    sizeText.textContent = "0 MB / 0 MB";
-    etaText.textContent = "ETA: --";
+    showProgress(mode === "subtitle" ? "Downloading Subtitles..." : 
+                 mode === "audio" ? "Downloading MP3..." : "Downloading Video...");
 
     const res = await fetch("/api/download", {
       method: "POST",
@@ -200,58 +212,52 @@ async function startDownload(mode, format = null) {
     currentTaskId = data.task_id;
     pollProgress();
   } catch (err) {
-    hideProgressModal();
-    showStatus(err.message, "error");
+    hideProgress();
+    showStatus(err.message || "Download failed", "error");
   }
 }
 
-// Poll progress every 700ms
 function pollProgress() {
-  if (!currentTaskId) return;
+  if (progressInterval) clearInterval(progressInterval);
 
-  const interval = setInterval(async () => {
-    if (!currentTaskId) {
-      clearInterval(interval);
-      return;
-    }
+  progressInterval = setInterval(async () => {
+    if (!currentTaskId) return;
 
     try {
       const res = await fetch(`/api/progress/${currentTaskId}`, { method: 'POST' });
       const prog = await res.json();
 
       if (prog.status === "finished") {
-        clearInterval(interval);
-        hideProgressModal();
-        showStatus("Download completed! Triggering file download...", "success");
+        clearInterval(progressInterval);
+        hideProgress();
+        showStatus("✅ Download completed! Check your downloads folder.", "success");
         // Auto-trigger file download
         window.location.href = `/api/download_file/${currentTaskId}`;
       } else if (prog.status === "downloading") {
         progressBar.style.width = prog.percent + "%";
         percentText.textContent = prog.percent + "%";
-        const downloadedMB = (prog.downloaded / (1024*1024)).toFixed(1);
-        const totalMB = prog.total ? (prog.total / (1024*1024)).toFixed(1) : "??";
+
+        const downloadedMB = (prog.downloaded / (1024 * 1024)).toFixed(1);
+        const totalMB = prog.total ? (prog.total / (1024 * 1024)).toFixed(1) : "??";
         sizeText.textContent = `${downloadedMB} MB / ${totalMB} MB`;
+
         etaText.textContent = prog.eta ? `ETA: ${Math.round(prog.eta)}s` : "ETA: calculating...";
       } else if (prog.status === "error") {
-        clearInterval(interval);
-        hideProgressModal();
-        showStatus(prog.error || "Download failed.", "error");
+        clearInterval(progressInterval);
+        hideProgress();
+        showStatus("Download failed", "error");
       }
-    } catch (e) {
-      console.error("Polling error:", e);
-    }
-  }, 700);
+    } catch (e) {}
+  }, 800);
 }
 
-function hideProgressModal() {
-  progressModal.classList.add("hidden");
-  progressBar.style.width = "0%";
-  currentTaskId = null;
-}
+// Cancel button
+cancelBtn.addEventListener("click", () => {
+  hideProgress();
+  showStatus("Download cancelled.", "error");
+});
 
-// Attach buttons
+// ====================== BUTTONS ======================
 bestBtn.addEventListener("click", () => startDownload("video"));
 audioBtn.addEventListener("click", () => startDownload("audio"));
 subtitleBtn.addEventListener("click", () => startDownload("subtitle"));
-
-cancelBtn.addEventListener("click", hideProgressModal);
