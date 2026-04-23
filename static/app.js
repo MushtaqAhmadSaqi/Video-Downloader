@@ -234,7 +234,9 @@ function pollProgress() {
         // Auto-trigger file download
         window.location.href = `/api/download_file/${currentTaskId}`;
       } else if (prog.status === "downloading") {
+        const wrap = document.getElementById("progressBarWrap");
         progressBar.style.width = prog.percent + "%";
+        wrap.setAttribute("aria-valuenow", String(prog.percent));
         percentText.textContent = prog.percent + "%";
 
         const downloadedMB = (prog.downloaded / (1024 * 1024)).toFixed(1);
@@ -242,19 +244,29 @@ function pollProgress() {
         sizeText.textContent = `${downloadedMB} MB / ${totalMB} MB`;
 
         etaText.textContent = prog.eta ? `ETA: ${Math.round(prog.eta)}s` : "ETA: calculating...";
+      } else if (prog.status === "cancelled") {
+        clearInterval(progressInterval);
+        hideProgress();
+        showStatus("Download cancelled by user.", "error");
       } else if (prog.status === "error") {
         clearInterval(progressInterval);
         hideProgress();
-        showStatus("Download failed", "error");
+        showStatus(prog.error || "Download failed", "error");
       }
     } catch (e) {}
   }, 800);
 }
 
 // Cancel button
-cancelBtn.addEventListener("click", () => {
-  hideProgress();
-  showStatus("Download cancelled.", "error");
+cancelBtn.addEventListener("click", async () => {
+  if (!currentTaskId) return;
+  try {
+    await fetch(`/api/cancel/${currentTaskId}`, { method: 'POST' });
+    hideProgress();
+    showStatus("Download cancelled.", "error");
+  } catch (e) {
+    console.error("Cancel failed", e);
+  }
 });
 
 // ====================== BUTTONS ======================

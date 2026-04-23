@@ -20,45 +20,177 @@ BASE_DIR = Path(__file__).resolve().parent
 DOWNLOAD_ROOT = BASE_DIR / "temp"
 DOWNLOAD_ROOT.mkdir(exist_ok=True)
 
-# ====================== BUNDLED FFMPEG (your existing code) ======================
+import platform
+import sys
+import logging
+
+# ====================== CROSS-PLATFORM BUNDLED FFMPEG ======================
 BUNDLED_FFMPEG_DIR = BASE_DIR / "ffmpeg"
-_bundled_exe = BUNDLED_FFMPEG_DIR / "ffmpeg.exe"
+
+
+def _ffmpeg_binary_name() -> str:
+    """Return platform-specific ffmpeg binary name."""
+    return "ffmpeg.exe" if sys.platform.startswith("win") else "ffmpeg"
+
+
+def _ffprobe_binary_name() -> str:
+    return "ffprobe.exe" if sys.platform.startswith("win") else "ffprobe"
+
+
+def _candidate_paths() -> list[Path]:
+    """All possible locations where bundled ffmpeg may live."""
+    name = _ffmpeg_binary_name()
+    candidates = [
+        BUNDLED_FFMPEG_DIR / name,
+        BUNDLED_FFMPEG_DIR / "bin" / name,     # extracted-zip style
+    ]
+    # On macOS/Linux some users keep it in ./ffmpeg/ without extension
+    if not sys.platform.startswith("win"):
+        candidates.append(BUNDLED_FFMPEG_DIR / "ffmpeg")
+    return candidates
+
 
 def ffmpeg_available() -> tuple[bool, str | None]:
-    if _bundled_exe.is_file():
+    """
+    Detect ffmpeg on any OS.
+    Returns (available, directory_containing_binary_or_None_if_in_PATH).
+    """
+    # 1. Bundled binary
+    for path in _candidate_paths():
+        if path.is_file():
+            try:
+                result = subprocess.run(
+                    [str(path), "-version"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                    timeout=5,
+                )
+                if result.returncode == 0:
+                    # Ensure it's executable on Unix
+                    if not sys.platform.startswith("win"):
+                        path.chmod(path.stat().st_mode | 0o111)
+                    return True, str(path.parent)
+            except (OSError, subprocess.TimeoutExpired):
+                continue
+
+    # 2. System PATH
+    sys_ffmpeg = shutil.which("ffmpeg")
+    if sys_ffmpeg:
         try:
-            completed = subprocess.run([str(_bundled_exe), "-version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
-            if completed.returncode == 0:
-                return True, str(BUNDLED_FFMPEG_DIR)
-        except OSError:
+            result = subprocess.run(
+                [sys_ffmpeg, "-version"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                return True, None   # None = let yt-dlp find it via PATH
+        except (OSError, subprocess.TimeoutExpired):
             pass
-    try:
-        completed = subprocess.run(["ffmpeg", "-version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
-        if completed.returncode == 0:
-            return True, None
-    except FileNotFoundError:
-        pass
+
     return False, None
 
-HAS_FFMPEG, FFMPEG_LOCATION = ffmpeg_available()
 
-# ====================== PROGRESS STORE (for progress bar) ======================
+HAS_FFMPEG, FFMPEG_LOCATION = ffmpeg_available()
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# ====================== PROGRESS STORE & CANCEL SYSTEM ======================
+import time
+from threading import Event, Lock
+
 progress_store: dict[str, dict] = {}
+cancel_events: dict[str, Event] = {}
+store_lock = Lock()
+
+
+class DownloadCancelled(Exception):
+    """Raised when user cancels a download."""
+    pass
+
 
 def progress_hook(d: dict, task_id: str):
-    if d['status'] == 'downloading':
-        downloaded = d.get('downloaded_bytes', 0)
-        total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
-        percent = (downloaded / total * 100) if total else 0
-        progress_store[task_id] = {
-            "status": "downloading",
-            "percent": round(percent, 1),
-            "downloaded": downloaded,
-            "total": total,
-            "eta": d.get('eta', 0)
-        }
-    elif d['status'] == 'finished':
-        progress_store[task_id] = {"status": "finished", "percent": 100}
+    # Check cancel flag on every progress tick
+    evt = cancel_events.get(task_id)
+    if evt and evt.is_set():
+        raise DownloadCancelled("Download cancelled by user.")
+
+    with store_lock:
+        if d['status'] == 'downloading':
+            downloaded = d.get('downloaded_bytes', 0)
+            total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
+            percent = (downloaded / total * 100) if total else 0
+            progress_store[task_id] = {
+                **progress_store.get(task_id, {}),
+                "status": "downloading",
+                "percent": round(percent, 1),
+                "downloaded": downloaded,
+                "total": total,
+                "eta": d.get('eta', 0),
+                "speed": d.get('speed', 0),
+                "updated_at": time.time(),
+            }
+        elif d['status'] == 'finished':
+            progress_store[task_id] = {
+                **progress_store.get(task_id, {}),
+                "status": "merging",  # yt-dlp may still post-process
+                "percent": 99,
+                "updated_at": time.time(),
+            }
+
+
+# ====================== BACKGROUND CLEANUP ======================
+TASK_TTL_SECONDS = 60 * 60       # Remove tasks older than 1 hour
+FILE_TTL_SECONDS = 60 * 30       # Remove served files after 30 minutes
+CLEANUP_INTERVAL = 60 * 5        # Run cleanup every 5 minutes
+
+
+def cleanup_worker():
+    """Periodically clean orphaned files and stale task entries."""
+    while True:
+        try:
+            now = time.time()
+
+            # 1. Clean progress_store entries
+            with store_lock:
+                stale_ids = []
+                for tid, data in progress_store.items():
+                    updated_at = data.get("updated_at", now)
+                    status = data.get("status")
+                    age = now - updated_at
+                    if status in ("finished", "error", "cancelled") and age > FILE_TTL_SECONDS:
+                        stale_ids.append(tid)
+                    elif age > TASK_TTL_SECONDS:
+                        stale_ids.append(tid)
+
+                for tid in stale_ids:
+                    data = progress_store.pop(tid, {})
+                    cancel_events.pop(tid, None)
+                    tmp = data.get("temp_dir")
+                    if tmp:
+                        shutil.rmtree(tmp, ignore_errors=True)
+                    logger.info(f"Cleaned task {tid}")
+
+            # 2. Sweep orphan temp directories older than TTL
+            if DOWNLOAD_ROOT.exists():
+                for child in DOWNLOAD_ROOT.iterdir():
+                    try:
+                        if child.is_dir() and (now - child.stat().st_mtime) > TASK_TTL_SECONDS:
+                            shutil.rmtree(child, ignore_errors=True)
+                            logger.info(f"Removed orphan dir {child}")
+                    except OSError:
+                        pass
+
+        except Exception:
+            logger.exception("cleanup_worker error")
+
+        time.sleep(CLEANUP_INTERVAL)
+
+
+# Start cleanup thread once at app startup
+threading.Thread(target=cleanup_worker, daemon=True).start()
 
 # ====================== YOUR EXISTING HELPER FUNCTIONS ======================
 def human_size(num_bytes: int | None) -> str:
@@ -202,7 +334,22 @@ def api_info() -> Any:
 
 @app.post("/api/progress/<task_id>")
 def api_progress(task_id: str):
-    return jsonify(progress_store.get(task_id, {"status": "waiting", "percent": 0}))
+    with store_lock:
+        return jsonify(progress_store.get(task_id, {"status": "waiting", "percent": 0}))
+
+
+@app.post("/api/cancel/<task_id>")
+def api_cancel(task_id: str):
+    evt = cancel_events.get(task_id)
+    if not evt:
+        return jsonify({"error": "Task not found"}), 404
+    evt.set()
+    with store_lock:
+        progress_store[task_id] = {
+            **progress_store.get(task_id, {}),
+            "status": "cancelled",
+        }
+    return jsonify({"ok": True, "task_id": task_id})
 
 @app.post("/api/download")
 def api_download() -> Any:
@@ -254,21 +401,43 @@ def api_download() -> Any:
             if HAS_FFMPEG:
                 ydl_opts["merge_output_format"] = "mp4"
 
+        cancel_events[task_id] = Event()
+
         def run_download():
             try:
                 ydl_opts["progress_hooks"] = [lambda d: progress_hook(d, task_id)]
                 with YoutubeDL(ydl_opts) as ydl:
                     ydl.extract_info(url, download=True)
-                # find the downloaded file
-                files = [p for p in temp_dir.glob("*") if p.is_file() and not p.name.endswith((".part", ".ytdl"))]
+
+                files = [p for p in temp_dir.glob("*") 
+                         if p.is_file() and not p.name.endswith((".part", ".ytdl"))]
                 if files:
                     file_path = max(files, key=lambda p: p.stat().st_size)
-                    progress_store[task_id]["file_path"] = str(file_path)
-                    progress_store[task_id]["filename"] = file_path.name
-                progress_store[task_id]["status"] = "finished"
+                    with store_lock:
+                        progress_store[task_id]["file_path"] = str(file_path)
+                        progress_store[task_id]["filename"] = file_path.name
+                        progress_store[task_id]["temp_dir"] = str(temp_dir)
+                with store_lock:
+                    progress_store[task_id]["status"] = "finished"
+                    progress_store[task_id]["percent"] = 100
+
+            except DownloadCancelled:
+                logger.info(f"[{task_id}] cancelled by user")
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                with store_lock:
+                    progress_store[task_id]["status"] = "cancelled"
+            except DownloadError as e:
+                logger.warning(f"[{task_id}] yt-dlp error: {e}")
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                with store_lock:
+                    progress_store[task_id]["status"] = "error"
+                    progress_store[task_id]["error"] = "Download failed. The URL may be invalid or the site unsupported."
             except Exception as e:
-                progress_store[task_id]["status"] = "error"
-                progress_store[task_id]["error"] = str(e)
+                logger.exception(f"[{task_id}] unexpected error")
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                with store_lock:
+                    progress_store[task_id]["status"] = "error"
+                    progress_store[task_id]["error"] = "An unexpected error occurred."
 
         # Run download in background thread
         threading.Thread(target=run_download, daemon=True).start()
@@ -281,20 +450,27 @@ def api_download() -> Any:
 
 @app.get("/api/download_file/<task_id>")
 def api_download_file(task_id: str):
-    task = progress_store.get(task_id)
+    with store_lock:
+        task = progress_store.get(task_id)
     if not task:
         return jsonify({"error": "Task not found"}), 404
     if task.get("status") != "finished":
         return jsonify({"error": "Download still in progress or failed"}), 400
     file_path_str = task.get("file_path")
-    if not file_path_str:
-        return jsonify({"error": "File path not found"}), 404
-    
-    file_path = Path(file_path_str)
-    if not file_path.exists():
+    if not file_path_str or not Path(file_path_str).exists():
         return jsonify({"error": "File no longer exists"}), 404
-        
-    return send_file(file_path, as_attachment=True, download_name=task.get("filename"))
+
+    response = send_file(
+        Path(file_path_str),
+        as_attachment=True,
+        download_name=task.get("filename"),
+    )
+
+    # Mark the task as "served" so cleanup can delete it sooner
+    with store_lock:
+        progress_store[task_id]["served_at"] = time.time()
+
+    return response
 
 if __name__ == "__main__":
     app.run(debug=True, host="127.0.0.1", port=5000)

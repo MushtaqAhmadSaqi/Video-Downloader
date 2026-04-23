@@ -45,12 +45,18 @@
       </div>
     </section>
 
-    <section id="statusBox" class="status hidden"></section>
+    <section id="statusBox" class="status hidden" role="status" aria-live="polite" aria-atomic="true"></section>
 
     <section id="resultCard" class="result card hidden">
       <div class="result-grid">
         <div class="thumb-wrap">
-          <img id="thumbnail" alt="Video thumbnail" />
+          <img
+            id="thumbnail"
+            alt=""
+            loading="lazy"
+            decoding="async"
+            src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 9'><rect width='16' height='9' fill='%23152033'/></svg>"
+          />
         </div>
 
         <div class="meta-wrap">
@@ -62,9 +68,15 @@
           </div>
 
           <div class="download-actions">
-            <button id="bestBtn" class="primary" type="button">Download Best Quality</button>
-            <button id="audioBtn" class="secondary" type="button">Download MP3</button>
-            <button id="subtitleBtn" class="secondary" type="button">Download Subtitles</button>
+            <button id="bestBtn" class="primary" type="button" aria-label="Download best available quality">
+              Download Best Quality
+            </button>
+            <button id="audioBtn" class="secondary" type="button" aria-label="Download audio as MP3">
+              Download MP3
+            </button>
+            <button id="subtitleBtn" class="secondary" type="button" aria-label="Download subtitles">
+              Download Subtitles
+            </button>
           </div>
         </div>
       </div>
@@ -77,21 +89,31 @@
       <div id="formatsList" class="formats-list"></div>
     </section>
     
-    <!-- === INLINE PROGRESS BAR (new - appears on the same page) === -->
-    <section id="progressSection" class="card hidden">
+    <!-- === ACCESSIBLE INLINE PROGRESS BAR === -->
+    <section id="progressSection" class="card hidden" aria-labelledby="progressTitle">
       <h3 id="progressTitle">Downloading...</h3>
-      
-      <div class="progress-container">
+
+      <div
+        class="progress-container"
+        role="progressbar"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="0"
+        aria-labelledby="progressTitle"
+        id="progressBarWrap"
+      >
         <div id="progressBar" class="progress-bar"></div>
       </div>
-      
-      <div class="progress-info">
+
+      <div class="progress-info" aria-live="polite">
         <span id="percentText">0%</span>
         <span id="sizeText">0 MB / 0 MB</span>
         <span id="etaText">ETA: --</span>
       </div>
 
-      <button id="cancelBtn" class="ghost-button">Cancel Download</button>
+      <button id="cancelBtn" class="ghost-button" type="button" aria-label="Cancel current download">
+        Cancel Download
+      </button>
     </section>
 
     <section class="tips card">
