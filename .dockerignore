@@ -1,0 +1,13 @@
+venv/
+__pycache__/
+*.pyc
+.git/
+.gitignore
+logs/
+temp/
+ffmpeg/
+.vscode/
+.idea/
+*.md
+docs/
+docker-compose.yml

@@ -1,3 +1,33 @@
+// ====================== THEME TOGGLE ======================
+(function initTheme() {
+  const KEY = "multivid-theme";
+  const saved = localStorage.getItem(KEY);
+  const prefersLight = window.matchMedia("(prefers-color-scheme: light)").matches;
+  const theme = saved || (prefersLight ? "light" : "dark");
+  document.documentElement.setAttribute("data-theme", theme);
+
+  window.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("themeToggle");
+    if (!btn) return;
+
+    const icon = btn.querySelector(".theme-icon");
+    const render = () => {
+      const cur = document.documentElement.getAttribute("data-theme");
+      icon.textContent = cur === "light" ? "☀️" : "🌙";
+      btn.setAttribute("aria-label", `Switch to ${cur === "light" ? "dark" : "light"} theme`);
+    };
+    render();
+
+    btn.addEventListener("click", () => {
+      const cur = document.documentElement.getAttribute("data-theme");
+      const next = cur === "light" ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem(KEY, next);
+      render();
+    });
+  });
+})();
+
 const infoForm = document.getElementById("infoForm");
 const videoUrlInput = document.getElementById("videoUrl");
 const infoBtn = document.getElementById("infoBtn");
@@ -276,7 +306,10 @@ function hideProgress() {
   if (progressInterval) clearInterval(progressInterval);
 }
 
+let currentMode = "video";
+
 async function startDownload(mode, format = null) {
+  currentMode = mode;
   if (!currentVideo) {
     showStatus("Fetch video details first.", "error");
     return;
@@ -386,6 +419,14 @@ function applyProgress(prog) {
     wrap.setAttribute("aria-valuenow", "100");
     percentText.textContent = "100%";
     showStatus("✅ Download completed! File is saving...", "success");
+
+    addToHistory({
+      title: currentVideo?.title || "Untitled",
+      url: videoUrlInput.value.trim(),
+      mode: currentMode,
+      filename: prog.filename,
+    });
+
     setTimeout(() => {
       window.location.href = `/api/download_file/${currentTaskId}`;
       hideProgress();
@@ -402,6 +443,89 @@ function applyProgress(prog) {
     showStatus(prog.error || "Download failed.", "error");
   }
 }
+
+// ====================== DOWNLOAD HISTORY ======================
+const HISTORY_KEY = "multivid-history";
+const HISTORY_MAX = 25;
+
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }
+  catch { return []; }
+}
+
+function saveHistory(list) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, HISTORY_MAX)));
+}
+
+function addToHistory(entry) {
+  const list = getHistory();
+  list.unshift({
+    title: entry.title,
+    url: entry.url,
+    mode: entry.mode,
+    filename: entry.filename || "",
+    timestamp: Date.now(),
+  });
+  saveHistory(list);
+  renderHistory();
+}
+
+function renderHistory() {
+  const section = document.getElementById("historySection");
+  const list = document.getElementById("historyList");
+  const empty = document.getElementById("historyEmpty");
+  if (!section || !list) return;
+
+  const items = getHistory();
+  list.innerHTML = "";
+
+  if (items.length === 0) {
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+
+  items.forEach((item, idx) => {
+    const li = document.createElement("li");
+    li.className = "history-item";
+    const when = new Date(item.timestamp).toLocaleString();
+    li.innerHTML = `
+      <div style="min-width:0;">
+        <div class="hi-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
+        <div class="hi-meta">${escapeHtml(item.mode)} • ${when}</div>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <button data-action="reuse" data-idx="${idx}">Reuse URL</button>
+        <button data-action="remove" data-idx="${idx}">×</button>
+      </div>`;
+    list.appendChild(li);
+  });
+
+  list.onclick = (evt) => {
+    const btn = evt.target.closest("button[data-action]");
+    if (!btn) return;
+    const idx = Number(btn.dataset.idx);
+    const all = getHistory();
+
+    if (btn.dataset.action === "reuse") {
+      videoUrlInput.value = all[idx].url;
+      videoUrlInput.focus();
+    } else if (btn.dataset.action === "remove") {
+      all.splice(idx, 1);
+      saveHistory(all);
+      renderHistory();
+    }
+  };
+}
+
+document.getElementById("clearHistoryBtn")?.addEventListener("click", () => {
+  if (confirm("Clear all download history?")) {
+    localStorage.removeItem(HISTORY_KEY);
+    renderHistory();
+  }
+});
+
+document.addEventListener("DOMContentLoaded", renderHistory);
 
 // Cancel button
 cancelBtn.addEventListener("click", async () => {

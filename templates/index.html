@@ -15,6 +15,16 @@
   <div class="bg-glow glow-2"></div>
 
   <main class="container">
+    <button
+      id="themeToggle"
+      class="theme-toggle"
+      type="button"
+      aria-label="Toggle color theme"
+      title="Toggle theme"
+    >
+      <span class="theme-icon">🌙</span>
+    </button>
+
     <section class="hero card">
       <div class="badge">Open-source • Local-first • Free</div>
       <h1>MultiVid</h1>
@@ -114,6 +124,15 @@
       <button id="cancelBtn" class="ghost-button" type="button" aria-label="Cancel current download">
         Cancel Download
       </button>
+    </section>
+
+    <section id="historySection" class="card history-card">
+      <div class="history-header">
+        <h3>Recent downloads</h3>
+        <button id="clearHistoryBtn" class="ghost-button" type="button">Clear history</button>
+      </div>
+      <ul id="historyList" class="history-list"></ul>
+      <p id="historyEmpty" class="muted-text">No downloads yet.</p>
     </section>
 
     <section class="tips card">

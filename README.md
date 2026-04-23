@@ -174,34 +174,65 @@ yt-dlp supports **1000+ websites**, including:
 
 ---
 
+---
+
+## 🐳 Docker Deployment
+
+### One-command run
+```bash
+docker compose up -d --build
+```
+Then visit `http://localhost:5000`.
+
+### Rebuild after code changes
+```bash
+docker compose up -d --build --force-recreate
+```
+
+### View logs
+```bash
+docker compose logs -f multivid
+```
+
+### Stop
+```bash
+docker compose down
+```
+
+### Production tips
+- Put a reverse proxy (Caddy / nginx / Traefik) with HTTPS in front.
+- For multiple workers across machines, switch Flask-Limiter storage from `memory://` to `redis://redis:6379`.
+- Mount `./logs` and `./temp` as named volumes for persistence.
+
+---
+
 ## 🗺️ Planned Improvements
 
-The following features are planned for future versions:
+The following features have been implemented or are planned:
 
 ### Core Features
-- [ ] **Real-time progress bar** — show live download progress using Server-Sent Events or WebSocket
-- [ ] **Playlist support** — detect and download full playlists or selected items
-- [ ] **Batch download** — paste multiple URLs and download them all at once
-- [ ] **Subtitle download** — fetch and embed subtitles/closed captions
+- [x] **Real-time progress bar** — live download progress using SSE
+- [ ] **Playlist support** — detect and download full playlists
+- [ ] **Batch download** — paste multiple URLs
+- [x] **Subtitle download** — fetch and embed subtitles (experimental)
 
 ### User Experience
-- [ ] **Download history** — remember past downloads using localStorage
-- [ ] **Drag-and-drop URL input** — drop links directly onto the page
-- [ ] **Format filter** — filter by video-only, audio-only, resolution, or file type
-- [ ] **Copy-to-clipboard button** — copy the direct download link
-- [ ] **Dark/light mode toggle**
+- [x] **Download history** — remember past downloads using localStorage
+- [ ] **Drag-and-drop URL input**
+- [x] **Format filter** — filter by video, audio, resolution, or type
+- [ ] **Copy-to-clipboard button**
+- [x] **Dark/light mode toggle**
 
 ### Quality & Output
-- [ ] **Custom output filename** — let users rename before downloading
-- [ ] **Quality presets** — "Best", "HD", "SD", "Audio only" quick-select buttons
-- [ ] **Thumbnail download** — save the video thumbnail as an image
-- [ ] **Metadata embedding** — embed title, artist, and artwork into audio files
+- [ ] **Custom output filename**
+- [ ] **Quality presets**
+- [ ] **Thumbnail download**
+- [ ] **Metadata embedding**
 
 ### Infrastructure
-- [ ] **Docker setup** — one-command deploy with Docker Compose
-- [ ] **Rate limiting** — protect against abuse if hosting publicly
-- [ ] **API key support** — support cookies/auth for age-restricted or member-only videos
-- [ ] **Logging & error reporting** — better error messages and server-side logs
+- [x] **Docker setup** — one-command deploy with Docker Compose
+- [x] **Rate limiting** — protect against abuse
+- [x] **Logging & error reporting** — robust error handling and server-side logs
 
 ---
 

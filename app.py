@@ -605,4 +605,6 @@ def api_download_file(task_id: str):
     return response
 
 if __name__ == "__main__":
-    app.run(debug=True, host="127.0.0.1", port=5000)
+    import os
+    debug = os.environ.get("FLASK_DEBUG", "0") == "1"
+    app.run(debug=debug, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
