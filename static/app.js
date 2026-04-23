@@ -61,36 +61,129 @@ function renderFormats(formats) {
   formatsList.innerHTML = "";
 
   if (!formats || formats.length === 0) {
-    formatsList.innerHTML = `<div class="format-card"><div><div class="format-title">No formats available</div><div class="format-meta">Try another link.</div></div></div>`;
+    formatsList.innerHTML = `
+      <div class="format-card">
+        <div>
+          <div class="format-title">No formats available</div>
+          <div class="format-meta">Try another link.</div>
+        </div>
+      </div>`;
     return;
   }
 
-  formats.forEach((format) => {
-    const card = document.createElement("div");
-    card.className = "format-card";
+  // Filter bar
+  const bar = document.createElement("div");
+  bar.className = "filter-bar";
+  bar.innerHTML = `
+    <label class="filter-label">
+      Filter:
+      <select id="formatFilter" aria-label="Filter formats">
+        <option value="all">All</option>
+        <option value="recommended">Recommended</option>
+        <option value="video">Video with audio</option>
+        <option value="video-only">Video only</option>
+        <option value="audio">Audio only</option>
+        <option value="1080">1080p+</option>
+        <option value="720">720p+</option>
+        <option value="480">480p+</option>
+      </select>
+    </label>
+    <span class="filter-count" id="filterCount"></span>`;
+  formatsList.appendChild(bar);
 
-    const left = document.createElement("div");
-    const typePill = `<span class="pill ${format.type}">${format.type.toUpperCase()}</span>`;
-    left.innerHTML = `
-      <div class="format-title">
-        ${typePill}
-        <span>${escapeHtml(format.label)}</span>
-      </div>
-      <div class="format-meta">
-        File size: ${escapeHtml(format.filesize || "Unknown")} • Format ID: ${escapeHtml(format.format_id)}
-      </div>
-    `;
-
-    const button = document.createElement("button");
-    button.className = "format-btn";
-    button.textContent = format.type === "audio" ? "Download Audio" : "Download Video";
-    button.addEventListener("click", () => {
-      startDownload(format.type, format);
-    });
-
-    card.append(left, button);
-    formatsList.appendChild(card);
+  // Grouped container
+  const groups = {
+    "Video + Audio": [],
+    "Video only":   [],
+    "Audio only":   [],
+  };
+  formats.forEach((f) => {
+    if (f.type === "audio") groups["Audio only"].push(f);
+    else if (f.has_audio)   groups["Video + Audio"].push(f);
+    else                    groups["Video only"].push(f);
   });
+
+  const groupsWrap = document.createElement("div");
+  groupsWrap.id = "formatGroups";
+  formatsList.appendChild(groupsWrap);
+
+  function draw(filter = "all") {
+    groupsWrap.innerHTML = "";
+    let shown = 0;
+
+    for (const [name, items] of Object.entries(groups)) {
+      const visibleItems = items.filter((f) => matchFilter(f, filter, name));
+      if (visibleItems.length === 0) continue;
+
+      const details = document.createElement("details");
+      details.className = "format-group";
+      details.open = true;
+
+      const summary = document.createElement("summary");
+      summary.innerHTML = `
+        <span>${name}</span>
+        <span class="group-count">${visibleItems.length}</span>`;
+      details.appendChild(summary);
+
+      visibleItems.forEach((format) => {
+        const card = document.createElement("div");
+        card.className = "format-card";
+
+        const left = document.createElement("div");
+        const typePill = `<span class="pill ${format.type}">${format.type.toUpperCase()}</span>`;
+        const recBadge = format.recommended
+          ? `<span class="pill recommended" title="Recommended for most users">★ RECOMMENDED</span>`
+          : "";
+
+        left.innerHTML = `
+          <div class="format-title">
+            ${typePill}
+            ${recBadge}
+            <span>${escapeHtml(format.label)}</span>
+          </div>
+          <div class="format-meta">
+            Size: ${escapeHtml(format.filesize || "Unknown")} • ID: ${escapeHtml(format.format_id)}
+          </div>`;
+
+        const button = document.createElement("button");
+        button.className = "format-btn";
+        button.type = "button";
+        button.textContent = format.type === "audio" ? "Download Audio" : "Download Video";
+        button.setAttribute("aria-label",
+          `Download ${format.label}, size ${format.filesize || "unknown"}`);
+        button.addEventListener("click", () => startDownload(format.type, format));
+
+        card.append(left, button);
+        details.appendChild(card);
+        shown++;
+      });
+
+      groupsWrap.appendChild(details);
+    }
+
+    document.getElementById("filterCount").textContent =
+      `${shown} format${shown === 1 ? "" : "s"} shown`;
+  }
+
+  function matchFilter(f, filter, groupName) {
+    switch (filter) {
+      case "all":         return true;
+      case "recommended": return !!f.recommended;
+      case "video":       return groupName === "Video + Audio";
+      case "video-only":  return groupName === "Video only";
+      case "audio":       return f.type === "audio";
+      case "1080":        return (f.height || 0) >= 1080;
+      case "720":         return (f.height || 0) >= 720;
+      case "480":         return (f.height || 0) >= 480;
+      default:            return true;
+    }
+  }
+
+  document.getElementById("formatFilter").addEventListener("change", (e) => {
+    draw(e.target.value);
+  });
+
+  draw("all");
 }
 
 function renderVideo(data) {
@@ -210,63 +303,115 @@ async function startDownload(mode, format = null) {
     if (data.error) throw new Error(data.error);
 
     currentTaskId = data.task_id;
-    pollProgress();
+    subscribeProgress(currentTaskId);   // instead of pollProgress();
   } catch (err) {
     hideProgress();
     showStatus(err.message || "Download failed", "error");
   }
 }
 
-function pollProgress() {
-  if (progressInterval) clearInterval(progressInterval);
+let progressSource = null;
 
+function stopProgressStream() {
+  if (progressSource) {
+    progressSource.close();
+    progressSource = null;
+  }
+  if (progressInterval) {
+    clearInterval(progressInterval);
+    progressInterval = null;
+  }
+}
+
+function subscribeProgress(taskId) {
+  stopProgressStream();
+
+  // Try SSE first
+  if (typeof EventSource !== "undefined") {
+    progressSource = new EventSource(`/api/progress-stream/${taskId}`);
+
+    progressSource.onmessage = (evt) => {
+      try {
+        const prog = JSON.parse(evt.data);
+        applyProgress(prog);
+      } catch (err) {
+        console.error("Bad progress payload", err);
+      }
+    };
+
+    progressSource.addEventListener("close", () => stopProgressStream());
+
+    progressSource.onerror = () => {
+      // Fall back to polling if SSE breaks
+      stopProgressStream();
+      pollProgressFallback();
+    };
+  } else {
+    pollProgressFallback();
+  }
+}
+
+function pollProgressFallback() {
   progressInterval = setInterval(async () => {
     if (!currentTaskId) return;
-
     try {
-      const res = await fetch(`/api/progress/${currentTaskId}`, { method: 'POST' });
+      const res = await fetch(`/api/progress/${currentTaskId}`);
       const prog = await res.json();
+      applyProgress(prog);
+    } catch (err) {
+      console.error("Progress poll failed", err);
+    }
+  }, 1000);
+}
 
-      if (prog.status === "finished") {
-        clearInterval(progressInterval);
-        hideProgress();
-        showStatus("✅ Download completed! Check your downloads folder.", "success");
-        // Auto-trigger file download
-        window.location.href = `/api/download_file/${currentTaskId}`;
-      } else if (prog.status === "downloading") {
-        const wrap = document.getElementById("progressBarWrap");
-        progressBar.style.width = prog.percent + "%";
-        wrap.setAttribute("aria-valuenow", String(prog.percent));
-        percentText.textContent = prog.percent + "%";
+function applyProgress(prog) {
+  const wrap = document.getElementById("progressBarWrap");
 
-        const downloadedMB = (prog.downloaded / (1024 * 1024)).toFixed(1);
-        const totalMB = prog.total ? (prog.total / (1024 * 1024)).toFixed(1) : "??";
-        sizeText.textContent = `${downloadedMB} MB / ${totalMB} MB`;
+  if (prog.status === "downloading" || prog.status === "merging") {
+    const pct = Math.min(100, Number(prog.percent) || 0);
+    progressBar.style.width = pct + "%";
+    wrap.setAttribute("aria-valuenow", String(pct));
+    percentText.textContent = pct + "%";
 
-        etaText.textContent = prog.eta ? `ETA: ${Math.round(prog.eta)}s` : "ETA: calculating...";
-      } else if (prog.status === "cancelled") {
-        clearInterval(progressInterval);
-        hideProgress();
-        showStatus("Download cancelled by user.", "error");
-      } else if (prog.status === "error") {
-        clearInterval(progressInterval);
-        hideProgress();
-        showStatus(prog.error || "Download failed", "error");
-      }
-    } catch (e) {}
-  }, 800);
+    if (prog.downloaded !== undefined && prog.total) {
+      const dlMB = (prog.downloaded / 1048576).toFixed(1);
+      const totalMB = (prog.total / 1048576).toFixed(1);
+      sizeText.textContent = `${dlMB} MB / ${totalMB} MB`;
+    }
+    etaText.textContent = prog.eta ? `ETA: ${Math.round(prog.eta)}s` : "ETA: calculating...";
+
+  } else if (prog.status === "finished") {
+    stopProgressStream();
+    progressBar.style.width = "100%";
+    wrap.setAttribute("aria-valuenow", "100");
+    percentText.textContent = "100%";
+    showStatus("✅ Download completed! File is saving...", "success");
+    setTimeout(() => {
+      window.location.href = `/api/download_file/${currentTaskId}`;
+      hideProgress();
+    }, 400);
+
+  } else if (prog.status === "cancelled") {
+    stopProgressStream();
+    hideProgress();
+    showStatus("Download cancelled.", "error");
+
+  } else if (prog.status === "error") {
+    stopProgressStream();
+    hideProgress();
+    showStatus(prog.error || "Download failed.", "error");
+  }
 }
 
 // Cancel button
 cancelBtn.addEventListener("click", async () => {
-  if (!currentTaskId) return;
+  if (!currentTaskId) { hideProgress(); return; }
   try {
-    await fetch(`/api/cancel/${currentTaskId}`, { method: 'POST' });
-    hideProgress();
-    showStatus("Download cancelled.", "error");
-  } catch (e) {
-    console.error("Cancel failed", e);
-  }
+    await fetch(`/api/cancel/${currentTaskId}`, { method: "POST" });
+  } catch (e) { /* ignore */ }
+  stopProgressStream();
+  hideProgress();
+  showStatus("Download cancelled.", "error");
 });
 
 // ====================== BUTTONS ======================

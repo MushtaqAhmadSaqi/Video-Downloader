@@ -11,12 +11,53 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from flask import Flask, jsonify, render_template, request, send_file
+from flask import Flask, jsonify, render_template, request, send_file, Response, stream_with_context
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
 BASE_DIR = Path(__file__).resolve().parent
+
+# ====================== LOGGING ======================
+import logging
+from logging.handlers import RotatingFileHandler
+
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)
+
+logger = logging.getLogger("multivid")
+logger.setLevel(logging.INFO)
+
+# Console
+_console = logging.StreamHandler()
+_console.setFormatter(logging.Formatter(
+    "%(asctime)s [%(levelname)s] %(name)s: %(message)s", "%H:%M:%S"))
+logger.addHandler(_console)
+
+# Rotating file log
+_file = RotatingFileHandler(
+    LOG_DIR / "multivid.log",
+    maxBytes=2 * 1024 * 1024,   # 2 MB
+    backupCount=3,
+    encoding="utf-8",
+)
+_file.setFormatter(logging.Formatter(
+    "%(asctime)s [%(levelname)s] %(name)s (%(filename)s:%(lineno)d): %(message)s"))
+logger.addHandler(_file)
+
+# Also hook Flask / werkzeug logs
+logging.getLogger("werkzeug").setLevel(logging.WARNING)
+
+# ====================== RATE LIMITER ======================
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per hour", "30 per minute"],
+    storage_uri="memory://",   # for single-instance; use redis://... in prod
+)
+
 DOWNLOAD_ROOT = BASE_DIR / "temp"
 DOWNLOAD_ROOT.mkdir(exist_ok=True)
 
@@ -95,7 +136,8 @@ def ffmpeg_available() -> tuple[bool, str | None]:
 
 HAS_FFMPEG, FFMPEG_LOCATION = ffmpeg_available()
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Handled by logging config above
+# logger = logging.getLogger(__name__)
 
 # ====================== PROGRESS STORE & CANCEL SYSTEM ======================
 import time
@@ -217,13 +259,51 @@ def human_duration(seconds: int | float | None) -> str:
 def site_name(info: dict[str, Any]) -> str:
     return info.get("extractor_key") or info.get("extractor") or info.get("webpage_url_domain") or "Unknown"
 
+import re
+from urllib.parse import urlparse
+
+ALLOWED_SCHEMES = {"http", "https"}
+ALLOWED_MODES = {"video", "audio", "subtitle"}
+FORMAT_ID_RE = re.compile(r"^[A-Za-z0-9_\-\+]{1,20}$")
+MAX_URL_LEN = 2048
+
+# Blocklist: never accept localhost or private IPs (SSRF guard)
+BLOCKED_HOSTS = {
+    "localhost", "127.0.0.1", "0.0.0.0", "::1",
+    "169.254.169.254",          # AWS metadata
+}
+
 def sanitize_url(url: str) -> str:
     url = (url or "").strip()
     if not url:
         raise ValueError("Please paste a video URL.")
-    if not (url.startswith("http://") or url.startswith("https://")):
+    if len(url) > MAX_URL_LEN:
+        raise ValueError("URL is too long.")
+    parsed = urlparse(url)
+    if parsed.scheme not in ALLOWED_SCHEMES:
         raise ValueError("URL must start with http:// or https://")
+    host = (parsed.hostname or "").lower()
+    if not host:
+        raise ValueError("URL is missing a hostname.")
+    if host in BLOCKED_HOSTS or host.startswith(("10.", "192.168.", "172.")):
+        raise ValueError("This URL is not allowed.")
     return url
+
+
+def validate_mode(mode: str) -> str:
+    mode = (mode or "video").strip().lower()
+    if mode not in ALLOWED_MODES:
+        raise ValueError(f"Invalid mode: {mode}")
+    return mode
+
+
+def validate_format_id(format_id: str) -> str:
+    format_id = (format_id or "").strip()
+    if not format_id:
+        return ""
+    if not FORMAT_ID_RE.match(format_id):
+        raise ValueError("Invalid format ID.")
+    return format_id
 
 INFO_YDL_OPTS: dict[str, Any] = {
     "quiet": True,
@@ -311,8 +391,8 @@ def health() -> Any:
     return jsonify({"ok": True, "ffmpeg": HAS_FFMPEG})
 
 @app.post("/api/info")
+@limiter.limit("20 per minute")
 def api_info() -> Any:
-    # (your existing /api/info route - unchanged)
     try:
         payload = request.get_json(silent=True) or {}
         url = sanitize_url(payload.get("url", ""))
@@ -329,16 +409,63 @@ def api_info() -> Any:
             "formats": clean_formats(info),
             "ffmpeg_ready": HAS_FFMPEG,
         })
-    except Exception as e:
+    except ValueError as e:
+        logger.info(f"Bad URL submitted: {e}")
         return jsonify({"error": str(e)}), 400
+    except DownloadError as e:
+        logger.warning(f"yt-dlp failed for URL: {e}")
+        return jsonify({"error": "We couldn't fetch this video. The site might be unsupported or the URL invalid."}), 400
+    except Exception:
+        logger.exception("Unexpected /api/info error")
+        return jsonify({"error": "An unexpected server error occurred. Please try again."}), 500
 
-@app.post("/api/progress/<task_id>")
+
+@app.get("/api/progress/<task_id>")
 def api_progress(task_id: str):
     with store_lock:
         return jsonify(progress_store.get(task_id, {"status": "waiting", "percent": 0}))
 
 
+@app.get("/api/progress-stream/<task_id>")
+def api_progress_stream(task_id: str):
+    """Server-Sent Events stream for real-time progress."""
+
+    @stream_with_context
+    def event_stream():
+        last_payload = None
+        # Keep streaming until terminal state or timeout
+        deadline = time.time() + 60 * 30  # 30 min max
+        while time.time() < deadline:
+            with store_lock:
+                data = progress_store.get(task_id, {"status": "waiting", "percent": 0}).copy()
+
+            payload = json.dumps(data)
+            if payload != last_payload:
+                yield f"data: {payload}\n\n"
+                last_payload = payload
+
+            status = data.get("status")
+            if status in ("finished", "error", "cancelled"):
+                yield "event: close\ndata: done\n\n"
+                return
+
+            time.sleep(0.5)
+
+        yield "event: close\ndata: timeout\n\n"
+
+    return Response(
+        event_stream(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",   # Disables proxy buffering (nginx)
+            "Connection": "keep-alive",
+        },
+    )
+
+
 @app.post("/api/cancel/<task_id>")
+@limiter.limit("30 per minute")
 def api_cancel(task_id: str):
     evt = cancel_events.get(task_id)
     if not evt:
@@ -352,6 +479,7 @@ def api_cancel(task_id: str):
     return jsonify({"ok": True, "task_id": task_id})
 
 @app.post("/api/download")
+@limiter.limit("10 per minute; 60 per hour")
 def api_download() -> Any:
     task_id = str(uuid.uuid4())
     temp_dir = Path(tempfile.mkdtemp(prefix="multivid-", dir=DOWNLOAD_ROOT))
@@ -360,8 +488,8 @@ def api_download() -> Any:
     try:
         payload = request.get_json(silent=True) or {}
         url = sanitize_url(payload.get("url", ""))
-        mode = (payload.get("mode") or "video").strip().lower()
-        format_id = str(payload.get("format_id") or "").strip()
+        mode = validate_mode(payload.get("mode"))
+        format_id = validate_format_id(payload.get("format_id"))
 
         outtmpl = str(temp_dir / "%(title).80B-%(id)s.%(ext)s")
 
@@ -444,9 +572,13 @@ def api_download() -> Any:
 
         return jsonify({"task_id": task_id, "status": "started"})
 
-    except Exception as e:
+    except ValueError as e:
         shutil.rmtree(temp_dir, ignore_errors=True)
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.exception("Unexpected /api/download error")
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        return jsonify({"error": "An unexpected error occurred."}), 500
 
 @app.get("/api/download_file/<task_id>")
 def api_download_file(task_id: str):
