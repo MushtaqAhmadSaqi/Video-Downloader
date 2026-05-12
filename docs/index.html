@@ -3,47 +3,118 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MultiVid Docs</title>
-  <meta name="description" content="Free open-source video downloader starter built with Flask and yt-dlp." />
+  <title>MultiVid - Universal Video Downloader</title>
+  <meta name="description" content="Free open-source local video downloader built with Flask and yt-dlp." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%237c9cff'/><polygon points='40,30 70,50 40,70' fill='white'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div class="bg-glow glow-1"></div>
+  <div class="bg-glow glow-2"></div>
+
   <main class="wrap">
     <div class="card">
-      <p class="tag">Open source • Free • Local-first</p>
-      <h1>MultiVid</h1>
+      <div class="badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        Open-source • Local-first • Free
+      </div>
+      <h1>
+        <span class="logo-icon">
+          <svg width="56" height="56" viewBox="0 0 48 48" fill="none">
+            <rect width="48" height="48" rx="12" fill="url(#logoGrad)"/>
+            <polygon points="20,14 34,24 20,34" fill="white"/>
+            <defs>
+              <linearGradient id="logoGrad" x1="0" y1="0" x2="48" y2="48">
+                <stop offset="0%" stop-color="#7c9cff"/>
+                <stop offset="100%" stop-color="#9d7bff"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </span>
+        MultiVid
+      </h1>
       <p class="lead">
-        MultiVid is a free starter project for downloading video info and media using Flask + yt-dlp on your own machine.
+        Download videos and audio from YouTube, Vimeo, and 1000+ sites directly to your device. Built with Flask + yt-dlp.
       </p>
 
+      <div class="legal-note">
+        <svg class="note-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span><strong>Use responsibly:</strong> only download content you own or have permission to access.</span>
+      </div>
+
       <div class="grid">
-        <section>
-          <h2>What you get</h2>
-          <ul>
-            <li>Simple modern UI</li>
-            <li>Video title, thumbnail, uploader, and duration</li>
-            <li>Available format list</li>
-            <li>Video and MP3 download support</li>
-            <li>GitHub Pages docs support</li>
-          </ul>
+        <section class="feature-card">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+          </div>
+          <h2>Video Downloads</h2>
+          <p>Download videos in best available quality or choose from multiple formats and resolutions.</p>
         </section>
 
-        <section>
-          <h2>Free resources</h2>
-          <ul>
-            <li><a href="https://flask.palletsprojects.com/">Flask docs</a></li>
-            <li><a href="https://github.com/yt-dlp/yt-dlp/wiki/Installation">yt-dlp install guide</a></li>
-            <li><a href="https://ffmpeg.org/download.html">FFmpeg downloads</a></li>
-            <li><a href="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages">GitHub Pages docs</a></li>
-          </ul>
+        <section class="feature-card">
+          <div class="feature-icon green">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
+          <h2>MP3 Extraction</h2>
+          <p>Convert videos to MP3 audio files with FFmpeg integration for high-quality audio extraction.</p>
         </section>
+
+        <section class="feature-card">
+          <div class="feature-icon purple">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="14" x2="17" y2="14"/><line x1="7" y1="18" x2="12" y2="18"/></svg>
+          </div>
+          <h2>Subtitles</h2>
+          <p>Download subtitles and captions in multiple languages when available.</p>
+        </section>
+
+        <section class="feature-card">
+          <div class="feature-icon yellow">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <h2>Real-time Progress</h2>
+          <p>Track download progress with real-time updates, speed indicators, and ETA estimates.</p>
+        </section>
+      </div>
+
+      <div class="resources-section">
+        <h3>
+          <svg class="section-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          Resources
+        </h3>
+        <div class="resources-grid">
+          <a href="https://flask.palletsprojects.com/" target="_blank" rel="noreferrer" class="resource-link">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Flask Documentation
+          </a>
+          <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noreferrer" class="resource-link">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+            yt-dlp on GitHub
+          </a>
+          <a href="https://ffmpeg.org/download.html" target="_blank" rel="noreferrer" class="resource-link">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            FFmpeg Downloads
+          </a>
+        </div>
       </div>
 
       <div class="actions">
-        <a class="button" href="../README.md">Read setup guide</a>
-        <a class="button secondary" href="#">Add your GitHub repo link here</a>
+        <a class="button" href="../templates/index.html">
+          <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Launch App
+        </a>
+        <a class="button secondary" href="https://github.com" target="_blank" rel="noreferrer">
+          <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+          View on GitHub
+        </a>
       </div>
     </div>
+
+    <footer class="footer">
+      <p>Built with Flask + yt-dlp</p>
+    </footer>
   </main>
 </body>
 </html>
