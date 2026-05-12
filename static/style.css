@@ -1018,6 +1018,154 @@ kbd {
   text-decoration: underline;
 }
 
+/* ====================== TOP PROGRESS BAR ====================== */
+.top-progress-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: var(--panel);
+  border-bottom: 1px solid var(--panel-border);
+  padding: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.top-progress-container.active {
+  max-height: 80px;
+  padding: 12px 20px;
+}
+
+.top-progress-inner {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.top-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.top-progress-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.top-progress-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--panel-border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.top-progress-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.top-progress-title svg {
+  color: var(--accent);
+}
+
+.top-progress-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.top-progress-stats span {
+  font-weight: 600;
+}
+
+.top-progress-stats .percent {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.top-progress-bar-container {
+  width: 100%;
+  height: 6px;
+  background: var(--input-bg);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.top-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-radius: 999px;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.top-progress-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+.top-progress-cancel {
+  background: var(--red-bg);
+  color: var(--red);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  padding: 6px 12px;
+  border-radius: var(--radius-xs);
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.top-progress-cancel:hover {
+  background: var(--red);
+  color: white;
+}
+
+/* Adjust body padding when progress bar is active */
+body.progress-active {
+  padding-top: 80px;
+}
+
+@media (max-width: 600px) {
+  .top-progress-container.active {
+    max-height: 100px;
+    padding: 10px 12px;
+  }
+
+  .top-progress-stats {
+    display: none;
+  }
+
+  .top-progress-title span {
+    display: none;
+  }
+}
+
 /* ====================== TOAST NOTIFICATIONS ====================== */
 .toast-container {
   position: fixed;

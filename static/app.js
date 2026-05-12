@@ -88,6 +88,15 @@ const speedText = document.getElementById("speedText");
 const etaText = document.getElementById("etaText");
 const cancelBtn = document.getElementById("cancelBtn");
 
+// Top progress bar elements
+const topProgressBar = document.getElementById("topProgressBar");
+const topProgressFill = document.getElementById("topProgressFill");
+const topProgressTitle = document.getElementById("topProgressTitle");
+const topPercentText = document.getElementById("topPercentText");
+const topSizeText = document.getElementById("topSizeText");
+const topEtaText = document.getElementById("topEtaText");
+const topCancelBtn = document.getElementById("topCancelBtn");
+
 const hasFfmpeg = document.body.dataset.ffmpeg === "true";
 let currentVideo = null;
 let currentTaskId = null;
@@ -369,6 +378,37 @@ infoForm.addEventListener("submit", async (event) => {
 });
 
 // ====================== DOWNLOAD HANDLING ======================
+function showTopProgress(title) {
+  topProgressTitle.textContent = title;
+  topProgressBar.classList.add("active");
+  document.body.classList.add("progress-active");
+  topProgressFill.style.width = "0%";
+  topPercentText.textContent = "0%";
+  topSizeText.textContent = "0 / 0 MB";
+  topEtaText.textContent = "--";
+  topProgressBar.setAttribute("aria-valuenow", "0");
+}
+
+function hideTopProgress() {
+  topProgressBar.classList.remove("active");
+  document.body.classList.remove("progress-active");
+  currentTaskId = null;
+}
+
+function updateTopProgress(prog, pct) {
+  topProgressFill.style.width = pct + "%";
+  topProgressBar.setAttribute("aria-valuenow", String(Math.round(pct)));
+  topPercentText.textContent = Math.round(pct) + "%";
+
+  if (prog.downloaded !== undefined && prog.total) {
+    const dlMB = (prog.downloaded / 1048576).toFixed(1);
+    const totalMB = (prog.total / 1048576).toFixed(1);
+    topSizeText.textContent = `${dlMB} / ${totalMB} MB`;
+  }
+
+  topEtaText.textContent = prog.eta ? `${Math.round(prog.eta)}s` : "--";
+}
+
 function showProgress(title, filename = "") {
   progressTitle.textContent = title;
   progressFileName.textContent = filename;
@@ -382,7 +422,7 @@ function showProgress(title, filename = "") {
 
 function hideProgress() {
   progressModal.classList.add("hidden");
-  currentTaskId = null;
+  hideTopProgress();
   stopProgressStream();
 }
 
@@ -418,6 +458,7 @@ async function startDownload(mode, format = null) {
 
   try {
     showProgress(title, currentVideo?.title || "");
+    showTopProgress(title);
 
     const res = await fetch("/api/download", {
       method: "POST",
@@ -484,6 +525,9 @@ function applyProgress(prog) {
     wrap.setAttribute("aria-valuenow", String(pct));
     percentText.textContent = pct + "%";
 
+    // Update top progress bar
+    updateTopProgress(prog, pct);
+
     if (prog.downloaded !== undefined && prog.total) {
       const dlMB = (prog.downloaded / 1048576).toFixed(1);
       const totalMB = (prog.total / 1048576).toFixed(1);
@@ -502,6 +546,10 @@ function applyProgress(prog) {
     progressBar.style.width = "100%";
     wrap.setAttribute("aria-valuenow", "100");
     percentText.textContent = "100%";
+
+    // Complete top progress bar
+    updateTopProgress({ downloaded: prog.total, total: prog.total }, 100);
+
     showToast("Download complete! File is saving...", "success");
 
     addToHistory({
@@ -618,8 +666,8 @@ document.getElementById("clearHistoryBtn")?.addEventListener("click", () => {
 
 document.addEventListener("DOMContentLoaded", renderHistory);
 
-// ====================== CANCEL BUTTON ======================
-cancelBtn.addEventListener("click", async () => {
+// ====================== CANCEL BUTTONS ======================
+async function cancelDownload() {
   if (!currentTaskId) { hideProgress(); return; }
   try {
     await fetch(`/api/cancel/${currentTaskId}`, { method: "POST" });
@@ -627,7 +675,10 @@ cancelBtn.addEventListener("click", async () => {
   stopProgressStream();
   hideProgress();
   showToast("Download cancelled", "error");
-});
+}
+
+cancelBtn.addEventListener("click", cancelDownload);
+topCancelBtn.addEventListener("click", cancelDownload);
 
 // ====================== ACTION BUTTONS ======================
 bestBtn.addEventListener("click", () => startDownload("video"));

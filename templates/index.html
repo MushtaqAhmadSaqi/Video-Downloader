@@ -18,6 +18,33 @@
   <!-- Toast Notifications Container -->
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
+  <!-- Top Progress Bar -->
+  <div id="topProgressBar" class="top-progress-container" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+    <div class="top-progress-inner">
+      <div class="top-progress-header">
+        <div class="top-progress-info">
+          <div class="top-progress-spinner"></div>
+          <div class="top-progress-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span id="topProgressTitle">Downloading...</span>
+          </div>
+        </div>
+        <div class="top-progress-stats">
+          <span class="percent" id="topPercentText">0%</span>
+          <span id="topSizeText">0 / 0 MB</span>
+          <span id="topEtaText">--</span>
+        </div>
+        <button id="topCancelBtn" class="top-progress-cancel" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Cancel
+        </button>
+      </div>
+      <div class="top-progress-bar-container">
+        <div id="topProgressFill" class="top-progress-bar"></div>
+      </div>
+    </div>
+  </div>
+
   <main class="container">
     <button
       id="themeToggle"
