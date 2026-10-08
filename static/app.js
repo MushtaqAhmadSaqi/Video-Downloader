@@ -316,6 +316,25 @@ function renderVideo(data) {
   resultCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
+function downloadFile(url, filename) {
+  fetch(url)
+    .then(response => {
+      if (!response.ok) throw new Error("Download failed");
+      return response.blob();
+    })
+    .then(blob => {
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    })
+    .catch(err => showToast("Download failed: " + err.message, "error"));
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -560,7 +579,7 @@ function applyProgress(prog) {
     });
 
     setTimeout(() => {
-      window.location.href = `/api/download_file/${currentTaskId}`;
+      downloadFile(`/api/download_file/${currentTaskId}`, prog.filename);
       hideProgress();
     }, 500);
 
