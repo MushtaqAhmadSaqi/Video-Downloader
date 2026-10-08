@@ -27,7 +27,7 @@ cd Video-Downloader
 ```bash
 python -m venv venv
 venv\Scripts\activate
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ### 3. Add FFmpeg (optional — needed for MP3 & HD video)
@@ -37,7 +37,7 @@ pip install -r requirements.txt
 
 ### 4. Run
 ```bash
-python app.py
+venv\Scripts\python.exe app.py
 ```
 
 Open http://127.0.0.1:5000 in your browser.
